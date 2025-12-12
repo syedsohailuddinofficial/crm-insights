@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>ConvertSync CRM — Insights Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --primary: #4f46e5;
+    --primary-dark: #312e81;
+    --accent: #22d3ee;
+
+    --text: #1e293b;
+    --muted: #64748b;
+
+    --radius: 16px;
+    --shadow: 0 6px 25px rgba(0,0,0,0.15);
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7f9ff 50%, #e5e7eb 100%);
+    background-size: 200% 200%;
+    animation: gradientMove 12s ease infinite;
+  }
+
+  @keyframes gradientMove {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  /* NAVBAR */
+  .navbar {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: white;
+    box-shadow: var(--shadow);
+  }
+  .navbar img {
+    height: 52px;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.2));
+  }
+  .navbar-title {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  /* CONTENT WRAPPER */
+  .container {
+    max-width: 1300px;
+    margin: 40px auto;
+    padding: 0 18px;
+  }
+
+  /* METRIC CARDS */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 22px;
+  }
+
+  .metric-card {
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(12px);
+    padding: 20px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .metric-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .metric-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin-top: 4px;
+  }
+
+  /* CHART PANELS */
+  .charts {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 26px;
+  }
+
+  .chart-card {
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(12px);
+    padding: 22px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .chart-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin-bottom: 12px;
+  }
+
+  @media(max-width: 900px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .charts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+  <img src="https://i.postimg.cc/yYHVnS8s/Gemini-Generated-Image-24txjv24txjv24tx.png">
+  <div class="navbar-title">ConvertSync CRM — Insights</div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="container">
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-title">Total Leads</div>
+      <div id="totalLeads" class="metric-value">0</div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-title">Hot Leads</div>
+      <div id="hotLeads" class="metric-value">0</div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-title">Pipeline Value (€)</div>
+      <div id="totalValue" class="metric-value">0</div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-title">Won Deals (€)</div>
+      <div id="wonValue" class="metric-value">0</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts">
+    <div class="chart-card">
+      <div class="chart-title">Leads by Stage</div>
+      <canvas id="stageChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Leads by Source</div>
+      <canvas id="sourceChart"></canvas>
+    </div>
+
+    <div class="chart-card" style="grid-column: span 2;">
+      <div class="chart-title">Revenue Over Time</div>
+      <canvas id="revenueChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- FIREBASE + CHARTS SCRIPT -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+  apiKey: "AIzaSyBGlqZzezS5u0akxWMMuHBBo13Epi1g2os",
+  authDomain: "convert-sync.firebaseapp.com",
+  projectId: "convert-sync",
+  storageBucket: "convert-sync.firebasestorage.app",
+  messagingSenderId: "178855641534",
+  appId: "1:178855641534:web:48b220fd2664ed51fbf9ef"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const leadsCol = collection(db, "convertsync_leads");
+
+  let stageChart, sourceChart, revenueChart;
+
+  onSnapshot(leadsCol, snapshot => {
+    const leads = snapshot.docs.map(d => d.data());
+
+    document.getElementById("totalLeads").innerText = leads.length;
+    document.getElementById("hotLeads").innerText = leads.filter(l => l.leadType === "Hot Lead").length;
+
+    const totalValue = leads.reduce((s, l) => s + (l.estimatedValue || 0), 0);
+    document.getElementById("totalValue").innerText = totalValue.toFixed(2);
+
+    const wonValue = leads.filter(l => l.stage === "Won")
+                          .reduce((s, l) => s + (l.estimatedValue || 0), 0);
+    document.getElementById("wonValue").innerText = wonValue.toFixed(2);
+
+    const stageCounts = {};
+    ["New","Contacted","Qualified","Proposal","Won","Lost"].forEach(s => stageCounts[s] = 0);
+    leads.forEach(l => stageCounts[l.stage] = (stageCounts[l.stage] || 0) + 1);
+
+    updateStageChart(Object.keys(stageCounts), Object.values(stageCounts));
+
+    const sourceCounts = {};
+    leads.forEach(l => sourceCounts[l.source] = (sourceCounts[l.source] || 0) + 1);
+    updateSourceChart(Object.keys(sourceCounts), Object.values(sourceCounts));
+
+    const revenueMap = {};
+    leads.filter(l => l.stage === "Won" && l.createdAt)
+         .forEach(l => {
+           const date = l.createdAt.toDate().toLocaleDateString();
+           revenueMap[date] = (revenueMap[date] || 0) + (l.estimatedValue || 0);
+         });
+    updateRevenueChart(Object.keys(revenueMap), Object.values(revenueMap));
+  });
+
+  function updateStageChart(labels, data) {
+    if (stageChart) stageChart.destroy();
+    stageChart = new Chart(document.getElementById("stageChart"), {
+      type: "bar",
+      data: { labels, datasets: [{ data, backgroundColor: "#4f46e5" }] },
+      options: { responsive: true }
+    });
+  }
+
+  function updateSourceChart(labels, data) {
+    if (sourceChart) sourceChart.destroy();
+    sourceChart = new Chart(document.getElementById("sourceChart"), {
+      type: "pie",
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: ["#4f46e5","#312e81","#22d3ee","#a5b4fc","#c7f9ff"]
+        }]
+      }
+    });
+  }
+
+  function updateRevenueChart(labels, data) {
+    if (revenueChart) revenueChart.destroy();
+    revenueChart = new Chart(document.getElementById("revenueChart"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Revenue (€)",
+          data,
+          borderColor: "#4f46e5",
+          tension: 0.3
+        }]
+      }
+    });
+  }
+</script>
+
+</body>
+</html>
